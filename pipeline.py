@@ -115,8 +115,8 @@ def build_job_list(csv_paths, prediction_horizon_sec=20.0, output_dir=OUTPUT_DIR
 
 def run_pipeline(
     csv_files,
-    prediction_horizon_sec=60.0,
-    n_workers=4,
+    prediction_horizon_sec=20.0,
+    n_workers=1,
     sensor_filter: str | None = None,
 ):
     """

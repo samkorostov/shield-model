@@ -1,0 +1,9 @@
+__pycache__/
+raw_data/
+data/
+*.csv
+*.npy
+processed_windows/
+*.joblib
+*.json
+.DS_Store

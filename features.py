@@ -1,9 +1,7 @@
 import numpy as np
 import pywt
 from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.preprocessing import StandardScaler
-from sklearn.pipeline import Pipeline
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.pipeline import FeatureUnion
 from scipy import stats as sp_stats
 from spectrum import arburg
 
@@ -15,7 +13,24 @@ class MODWTFeatureExtractor(BaseEstimator, TransformerMixin):
         self.features = features
 
     def fit(self, X, y=None):
-        return self  # Stateless transformer
+        return self
+
+    def get_feature_names_out(self, input_features=None):
+        names = []
+        for lvl in range(1, self.level + 1):
+            if "energy" in self.features:
+                names.append(f"detail_energy_L{lvl}")
+            if "variance" in self.features:
+                names.append(f"detail_variance_L{lvl}")
+            if "mean_abs" in self.features:
+                names.append(f"detail_mean_abs_L{lvl}")
+        if "energy" in self.features:
+            names.append(f"approx_energy_L{self.level}")
+        if "variance" in self.features:
+            names.append(f"approx_variance_L{self.level}")
+        if "mean_abs" in self.features:
+            names.append(f"approx_mean_abs_L{self.level}")
+        return np.array(names)
 
     def transform(self, X):
         return np.array([self._extract(window) for window in X])
@@ -51,6 +66,9 @@ class TimeDomainFeatures(BaseEstimator, TransformerMixin):
     def fit(self, X, y=None):
         return self
 
+    def get_feature_names_out(self, input_features=None):
+        return np.array(["mean", "var", "rms", "skew", "kurtosis", "zero_crossing_rate"])
+
     def transform(self, X):
         return np.array([self._extract(w) for w in X])
 
@@ -75,6 +93,10 @@ class FrequencyDomainFeatures(BaseEstimator, TransformerMixin):
 
     def fit(self, X, y=None):
         return self
+
+    def get_feature_names_out(self, input_features=None):
+        band_names = [f"band_energy_{lo}_{hi}hz" for lo, hi in self.bands]
+        return np.array([*band_names, "spectral_centroid", "spectral_flatness"])
 
     def transform(self, X):
         return np.array([self._extract(w) for w in X])
@@ -105,6 +127,9 @@ class ARBurgFeatures(BaseEstimator, TransformerMixin):
     def fit(self, X, y=None):
         return self
 
+    def get_feature_names_out(self, input_features=None):
+        return np.array(["ar_mean_angle", "ar_std_angle", "ar_mean_magnitude", "ar_log_noise_var"])
+
     def transform(self, X):
         return np.array([self._extract(w) for w in X])
 
@@ -124,3 +149,34 @@ class ARBurgFeatures(BaseEstimator, TransformerMixin):
             )
         except Exception:
             return np.zeros(4)
+
+
+class StabilityFeature(BaseEstimator, TransformerMixin):
+    def fit(self, X, y=None):
+        return self
+
+    def get_feature_names_out(self, input_features=None):
+        return np.array(["mean_squared_diff"])
+
+    def transform(self, X):
+        return np.array([[np.mean(np.diff(w) ** 2)] for w in X])
+
+
+def build_feature_pipeline(fs: float) -> FeatureUnion:
+    return FeatureUnion(
+        [
+            ("time", TimeDomainFeatures()),
+            ("freq", FrequencyDomainFeatures(fs=fs)),
+            ("stability", StabilityFeature()),
+            ("modwt", MODWTFeatureExtractor(wavelet="db4", level=4)),
+            # ("ar",      ARBurgFeatures(order=6)),
+        ]
+    )
+
+
+def get_pipeline_feature_names(is_imu: bool = False) -> list[str]:
+    """Returns ordered feature column names matching what pipeline.py produces."""
+    base_names = list(build_feature_pipeline(fs=1000.0).get_feature_names_out())
+    if not is_imu:
+        return base_names
+    return [f"{ax}__{name}" for ax in ("x", "y", "z") for name in base_names]

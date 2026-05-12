@@ -67,7 +67,9 @@ class TimeDomainFeatures(BaseEstimator, TransformerMixin):
         return self
 
     def get_feature_names_out(self, input_features=None):
-        return np.array(["mean", "var", "rms", "skew", "kurtosis", "zero_crossing_rate"])
+        return np.array(
+            ["mean", "var", "rms", "skew", "kurtosis", "zero_crossing_rate"]
+        )
 
     def transform(self, X):
         return np.array([self._extract(w) for w in X])
@@ -128,7 +130,9 @@ class ARBurgFeatures(BaseEstimator, TransformerMixin):
         return self
 
     def get_feature_names_out(self, input_features=None):
-        return np.array(["ar_mean_angle", "ar_std_angle", "ar_mean_magnitude", "ar_log_noise_var"])
+        return np.array(
+            ["ar_mean_angle", "ar_std_angle", "ar_mean_magnitude", "ar_log_noise_var"]
+        )
 
     def transform(self, X):
         return np.array([self._extract(w) for w in X])
@@ -169,7 +173,7 @@ def build_feature_pipeline(fs: float) -> FeatureUnion:
             ("freq", FrequencyDomainFeatures(fs=fs)),
             ("stability", StabilityFeature()),
             ("modwt", MODWTFeatureExtractor(wavelet="db4", level=4)),
-            # ("ar",      ARBurgFeatures(order=6)),
+            ("ar", ARBurgFeatures(order=6)),
         ]
     )
 
